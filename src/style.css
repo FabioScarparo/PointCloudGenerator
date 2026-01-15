@@ -575,16 +575,18 @@ body.light-mode ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.5);
   z-index: 1500;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, visibility 0.3s;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .mobile-backdrop.active {
   display: block;
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 @media (max-width: 768px) {
-  .mobile-backdrop {
-    display: block;
-  }
+  /* No longer forcing display: block here, handled by .active class */
 }
