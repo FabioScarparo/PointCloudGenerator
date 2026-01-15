@@ -29,7 +29,6 @@ An interactive 3D point cloud generator with advanced controls for creating comp
   - SVG (vector graphics)
   - OBJ (3D model)
 - **Themes**: Light and dark mode support
-- **Modern Design**: Clean interface with Apple Blue aesthetic
 
 ## Live Demo
 
@@ -72,18 +71,20 @@ npm run preview
 
 ## Project Structure
 
+```
 PointCloudGenerator/
 ├── src/
-│   ├── main.js              # Application entry point
-│   ├── Renderer.js          # 3D rendering with canvas
-│   ├── CurveEditor.js       # Interactive curve editor
-│   ├── SurfaceGenerator.js  # 3D surface generation
-│   ├── Exporter.js          # PNG, SVG, OBJ export
-│   ├── math.js              # Mathematical utilities
-│   └── style.css            # Global styles
-├── index.html               # Main HTML file
-├── vite.config.js           # Vite configuration
-└── package.json             # Project dependencies
+│   ├── main.js           # Application entry point
+│   ├── Renderer.js       # 3D rendering with canvas
+│   ├── CurveEditor.js    # Interactive curve editor
+│   ├── SurfaceGenerator.js # 3D surface generation
+│   ├── Exporter.js       # PNG, SVG, OBJ export
+│   ├── math.js           # Mathematical utilities
+│   └── style.css         # Global styles
+├── index.html            # Main HTML file
+├── vite.config.js        # Vite configuration
+└── package.json          # Project dependencies
+```
 
 ## Usage
 
