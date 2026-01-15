@@ -39,13 +39,21 @@ export class Renderer {
 
         // Touch events
         this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            this.onMouseDown(e.touches[0]);
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                this.onMouseDown(e.touches[0]);
+            }
         }, { passive: false });
+
         window.addEventListener('touchmove', (e) => {
-            this.onMouseMove(e.touches[0]);
+            if (this.isDragging && e.touches.length === 1) {
+                e.preventDefault();
+                this.onMouseMove(e.touches[0]);
+            }
         }, { passive: false });
+
         window.addEventListener('touchend', () => this.onMouseUp());
+        window.addEventListener('touchcancel', () => this.onMouseUp());
 
         // Zoom functionality
         this.canvas.addEventListener('wheel', this.onWheel.bind(this), { passive: false });

@@ -325,33 +325,6 @@ if (window.innerWidth <= 768) {
   });
 }
 
-// --- Touch Support for Canvas ---
-let touchStartX = 0;
-let touchStartY = 0;
-let touchStartAngleX = 0;
-let touchStartAngleY = 0;
-
-renderer.canvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    touchStartAngleX = renderer.angleX;
-    touchStartAngleY = renderer.angleY;
-  }
-}, { passive: true });
-
-renderer.canvas.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 1) {
-    e.preventDefault();
-    const deltaX = e.touches[0].clientX - touchStartX;
-    const deltaY = e.touches[0].clientY - touchStartY;
-
-    renderer.angleY = touchStartAngleY + deltaX * 0.01;
-    renderer.angleX = touchStartAngleX + deltaY * 0.01;
-    renderer.render();
-  }
-}, { passive: false });
-
 // Initial Draw & Start Animation
 update();
 animate();
