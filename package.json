@@ -1,0 +1,15 @@
+{
+  "name": "pointcloudgenerator",
+  "private": true,
+  "version": "0.0.0",
+  "homepage": "https://[username].github.io/PointCloudGenerator",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.2.4"
+  }
+}
