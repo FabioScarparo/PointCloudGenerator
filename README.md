@@ -46,7 +46,7 @@ Visit the live demo: [https://fabioscarparo.github.io/PointCloudGenerator](https
 
 ```bash
 # Clone the repository
-git clone https://github.com/FabioScarparo/PointCloudGenerator.git
+git clone https://github.com/fabioscarparo/PointCloudGenerator.git
 
 # Navigate to the directory
 cd PointCloudGenerator
