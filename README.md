@@ -11,7 +11,7 @@ An interactive 3D point cloud generator with advanced controls for creating comp
 - **Multiple Geometry Modes**:
   - Sweep Shape: Extrude a shape along a path
   - Revolution: Create solids of revolution
-  - Sheet (Depth Map): Generate surfaces based on depth maps
+  - Sheet (Depth Map Like): Generate surfaces
 - **Advanced Color Modes**:
   - Solid color
   - Height-based gradient
@@ -72,20 +72,18 @@ npm run preview
 
 ## Project Structure
 
-```
 PointCloudGenerator/
 ├── src/
-│   ├── main.js           # Application entry point
-│   ├── Renderer.js       # 3D rendering with canvas
-│   ├── CurveEditor.js    # Interactive curve editor
-│   ├── SurfaceGenerator.js # 3D surface generation
-│   ├── Exporter.js       # PNG, SVG, OBJ export
-│   ├── math.js           # Mathematical utilities
-│   └── style.css         # Global styles
-├── index.html            # Main HTML file
-├── vite.config.js        # Vite configuration
-└── package.json          # Project dependencies
-```
+│   ├── main.js              # Application entry point
+│   ├── Renderer.js          # 3D rendering with canvas
+│   ├── CurveEditor.js       # Interactive curve editor
+│   ├── SurfaceGenerator.js  # 3D surface generation
+│   ├── Exporter.js          # PNG, SVG, OBJ export
+│   ├── math.js              # Mathematical utilities
+│   └── style.css            # Global styles
+├── index.html               # Main HTML file
+├── vite.config.js           # Vite configuration
+└── package.json             # Project dependencies
 
 ## Usage
 
