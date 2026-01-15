@@ -36,14 +36,28 @@ export class Renderer {
         });
 
         // Unified Pointer Events (Mouse, Touch, Pen)
-        this.canvas.addEventListener('pointerdown', this.onPointerDown.bind(this));
-        window.addEventListener('pointermove', this.onPointerMove.bind(this));
+        this.canvas.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'touch') this.onPointerDown(e);
+            else this.onPointerDown(e);
+        });
+
+        // Ascolta il movimento sul canvas per i touch per essere sicuri che non venga intercettato dallo scroll
+        this.canvas.addEventListener('pointermove', this.onPointerMove.bind(this));
+        window.addEventListener('pointermove', (e) => {
+            if (e.pointerType === 'mouse') this.onPointerMove(e);
+        });
+
         window.addEventListener('pointerup', this.onPointerUp.bind(this));
         window.addEventListener('pointercancel', this.onPointerUp.bind(this));
 
         // CRITICAL: Force stop all touch scrolling on the canvas
-        this.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+        // Alcuni browser richiedono questo oltre a touch-action: none
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) e.preventDefault();
+        }, { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 1) e.preventDefault();
+        }, { passive: false });
 
         // Disable native touch actions to prevent scroll/zoom conflicts
         this.canvas.style.touchAction = 'none';
