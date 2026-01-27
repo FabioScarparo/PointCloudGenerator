@@ -1,13 +1,16 @@
 # Point Cloud Generator
 
-An interactive 3D point cloud generator with advanced controls for creating complex geometric shapes.
+An interactive **high-performance 3D point cloud generator** powered by **WebGPU**. Create complex geometric shapes with smooth real-time rendering of millions of points.
 
 ![Point Cloud Generator](https://img.shields.io/badge/status-active-success.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 ## Features
 
-- **Interactive Curve Editors**: Two separate editors for controlling vertical profile and horizontal shape
+- **High-Performance WebGPU Rendering**: 
+  - Ultra-fast rendering using modern GPU APIs
+  - **High DPI (Retina) support** for crystal-clear visuals
+  - **Smoothstep Anti-aliasing** for perfectly round points
 - **Multiple Geometry Modes**:
   - Sweep Shape: Extrude a shape along a path
   - Revolution: Create solids of revolution
@@ -16,14 +19,17 @@ An interactive 3D point cloud generator with advanced controls for creating comp
   - Solid color
   - Height-based gradient
   - Depth-based gradient
+- **Comprehensive Interaction**:
+  - **Rotation**: Instinctive mouse-based 3D rotation
+  - **Panning**: Middle mouse button (wheel) drag to reposition the view
+  - **Zoom**: Scroll wheel or slider based zooming
 - **Comprehensive Controls**:
   - Adjustable point density
   - Height scaling
   - Point radius
   - Noise intensity
-  - Viewport zoom
-  - Auto-rotation
   - Customizable background (color and transparency)
+  - **Grid & Axes Opacity**: Adjustable reference grid transparency
 - **Multiple Export Formats**:
   - PNG (raster image)
   - SVG (vector graphics)
@@ -72,10 +78,10 @@ npm run preview
 ## Project Structure
 
 ```
-PointCloudGenerator/
+Point Cloud Generator/
 ├── src/
 │   ├── main.js           # Application entry point
-│   ├── Renderer.js       # 3D rendering with canvas
+│   ├── WebGPURenderer.js # High-performance WebGPU rendering engine
 │   ├── CurveEditor.js    # Interactive curve editor
 │   ├── SurfaceGenerator.js # 3D surface generation
 │   ├── Exporter.js       # PNG, SVG, OBJ export
@@ -90,8 +96,20 @@ PointCloudGenerator/
 
 1. **Edit Vertical Profile**: Use the top editor to control height and scale along the Y-axis
 2. **Edit Horizontal Shape**: Use the middle editor to define the shape on the X-Z plane
-3. **Adjust Parameters**: Use the sidebar controls to modify density, colors, zoom, etc.
-4. **Export**: Save your work as PNG, SVG, or OBJ
+3. **Navigate 3D View**:
+   - **Rotate**: Left-click and drag
+   - **Pan**: Middle-click (scroll wheel) and drag
+   - **Zoom**: Scroll wheel
+4. **Adjust Parameters**: Use the sidebar controls to modify density, colors, grid opacity, etc.
+5. **Export**: Save your work as PNG, SVG, or OBJ
+
+## Browser Support
+
+Requires a browser with **WebGPU** support:
+- Google Chrome 113+
+- Microsoft Edge 113+
+- Safari 17.4+ (Experimental)
+- Firefox (behind flag `dom.webgpu.enabled`)
 
 ## Contributing
 
@@ -104,3 +122,4 @@ This project is licensed under the MIT License.
 ## Author
 
 Created by Fabio Scarparo
+
