@@ -57,9 +57,9 @@ fn vert_main(
 fn frag_main(@location(0) color : vec4<f32>, @location(1) uv : vec2<f32>) -> @location(0) vec4<f32> {
   var d = distance(uv, vec2<f32>(0.5, 0.5));
   
-  // Anti-aliased circle
-  // Smoothstep from 0.5 (edge) to 0.4 (inner) to create a soft border
-  var alpha = smoothstep(0.5, 0.4, d);
+  // Sharper circle to avoid "blur" when bloom is off
+  // Using a very narrow smoothstep for minor anti-aliasing without blurring
+  var alpha = smoothstep(0.5, 0.48, d);
   
   if (alpha < 0.01) {
      discard;
@@ -102,6 +102,72 @@ fn frag_main(@location(0) color : vec4<f32>) -> @location(0) vec4<f32> {
 }
 `;
 
+const postProcessShader = `
+struct PostUniforms {
+  bloomIntensity : f32,
+  threshold : f32,
+  direction : vec2<f32>,
+  resolution : vec2<f32>,
+};
+@group(0) @binding(0) var<uniform> postUniforms : PostUniforms;
+@group(0) @binding(1) var samp : sampler;
+@group(0) @binding(2) var tex : texture_2d<f32>;
+
+struct VertexOutput {
+  @builtin(position) Position : vec4<f32>,
+  @location(0) uv : vec2<f32>,
+};
+
+@vertex
+fn vert_main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
+  var pos = array<vec2<f32>, 3>(
+    vec2<f32>(-1.0, -1.0),
+    vec2<f32>( 3.0, -1.0),
+    vec2<f32>(-1.0,  3.0)
+  );
+  var out : VertexOutput;
+  out.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+  out.uv = pos[vertexIndex] * 0.5 + 0.5;
+  out.uv.y = 1.0 - out.uv.y;
+  return out;
+}
+
+@fragment
+fn frag_extract(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
+  let color = textureSample(tex, samp, uv);
+  let brightness = dot(color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+  if (brightness > postUniforms.threshold) {
+    return color;
+  }
+  return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+}
+
+@fragment
+fn frag_blur(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
+  var result = vec4<f32>(0.0);
+  // 9-tap Gaussian weights (sigma ~ 2)
+  let weight = array<f32, 5>(0.20236, 0.179044, 0.124009, 0.067234, 0.028532);
+  let texOffset = 1.0 / postUniforms.resolution;
+  let spread = 2.0;
+  
+  result += textureSample(tex, samp, uv) * weight[0];
+  for(var i = 1; i < 5; i++) {
+     let offset = f32(i) * texOffset * postUniforms.direction * spread;
+     result += textureSample(tex, samp, uv + offset) * weight[i];
+     result += textureSample(tex, samp, uv - offset) * weight[i];
+  }
+  return result;
+}
+
+@group(1) @binding(0) var sceneTex : texture_2d<f32>;
+@fragment
+fn frag_composite(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
+  let scene = textureSample(sceneTex, samp, uv);
+  let bloom = textureSample(tex, samp, uv);
+  return scene + bloom * postUniforms.bloomIntensity;
+}
+`;
+
 /**
  * WebGPU Renderer class for rendering 3D point clouds.
  * Handles resizing, matrix transformations, and instanced rendering.
@@ -138,10 +204,13 @@ export class WebGPURenderer {
         this._aspectRatio = 'custom';
         this._gridWidth = 400;
         this._gridDepth = 400;
+        this._bloomIntensity = 0;
+        this._bloomThreshold = 0.1;
 
         // WebGPU Objects
         this.pipeline = null;
         this.linePipeline = null;
+        this.postPipelines = {};
         this.vertexBuffer = null;
         this.uniformBuffer = null;
         this.gridBuffer = null;
@@ -268,12 +337,54 @@ export class WebGPURenderer {
         });
 
         this.createDepthTexture();
+        this.createPostProcessingResources();
 
         if (this.points.length > 0) {
             this.setPoints(this.points); // usage of device to create buffer
         } else {
             this.render();
         }
+    }
+
+    async createPostProcessingResources() {
+        if (!this.device) return;
+
+        const postShaderModule = this.device.createShaderModule({ code: postProcessShader });
+
+        const passes = ['extract', 'blur', 'composite'];
+        for (const p of passes) {
+            this.postPipelines[p] = this.device.createRenderPipeline({
+                layout: 'auto',
+                vertex: { module: postShaderModule, entryPoint: 'vert_main' },
+                fragment: {
+                    module: postShaderModule,
+                    entryPoint: `frag_${p}`,
+                    targets: [{ format: this.format }]
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        }
+
+        this.postUniformBuffer = this.device.createBuffer({
+            size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.sampler = this.device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+
+        this.createTextures();
+    }
+
+    createTextures() {
+        if (!this.device) return;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const usage = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING;
+
+        this.sceneTexture = this.device.createTexture({ size: [w, h], format: this.format, usage });
+        this.brightTexture = this.device.createTexture({ size: [w, h], format: this.format, usage });
+        this.blurTextureA = this.device.createTexture({ size: [w, h], format: this.format, usage });
+        this.blurTextureB = this.device.createTexture({ size: [w, h], format: this.format, usage });
     }
 
     /**
@@ -324,6 +435,7 @@ export class WebGPURenderer {
 
         if (this.device) {
             this.createDepthTexture();
+            this.createTextures();
             this.render();
         }
     }
@@ -397,6 +509,12 @@ export class WebGPURenderer {
         }
     }
     get gridDepth() { return this._gridDepth; }
+
+    set bloomIntensity(val) {
+        this._bloomIntensity = val;
+        this.render();
+    }
+    get bloomIntensity() { return this._bloomIntensity; }
 
     /**
      * Updates the point cloud data and uploads it to the GPU vertex buffer.
@@ -646,12 +764,23 @@ export class WebGPURenderer {
 
         this.updateUniforms();
 
+        // Update Post-Process Uniforms
+        const postData = new Float32Array(16);
+        postData[0] = this._bloomIntensity;
+        postData[1] = this._bloomThreshold;
+        postData[2] = 0; // Direction X (init)
+        postData[3] = 0; // Direction Y (init)
+        postData[4] = this.canvas.width;
+        postData[5] = this.canvas.height;
+        this.device.queue.writeBuffer(this.postUniformBuffer, 0, postData);
+
         const commandEncoder = this.device.createCommandEncoder();
         const clearC = this.hexToRgb(this.bgColor);
 
-        const renderPassDescriptor = {
+        // 1. Scene Pass
+        const sceneDescriptor = {
             colorAttachments: [{
-                view: this.context.getCurrentTexture().createView(),
+                view: this.sceneTexture.createView(),
                 clearValue: { r: clearC[0], g: clearC[1], b: clearC[2], a: this.bgTransparent ? 0.0 : 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store',
@@ -664,43 +793,110 @@ export class WebGPURenderer {
             }
         };
 
-        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+        const pass = commandEncoder.beginRenderPass(sceneDescriptor);
+        if (!this.gridBuffer && (this.showGrid || this.showAxes)) this.generateGrid();
 
-        // Update Grid Buffer if needed (or just assume it exists)
-        // Usually generated once or on change. I'll rely on external calls or init.
-        if (!this.gridBuffer && (this.showGrid || this.showAxes)) {
-            this.generateGrid();
-        }
-
-        // Draw Grid
         if ((this.showGrid || this.showAxes) && this.gridBuffer && this.linePipeline) {
-            passEncoder.setPipeline(this.linePipeline);
+            pass.setPipeline(this.linePipeline);
             if (!this.lineBindGroup) {
                 this.lineBindGroup = this.device.createBindGroup({
                     layout: this.linePipeline.getBindGroupLayout(0),
                     entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }]
                 });
             }
-            passEncoder.setBindGroup(0, this.lineBindGroup);
-            passEncoder.setVertexBuffer(0, this.gridBuffer);
-            passEncoder.draw(this.gridVertexCount);
+            pass.setBindGroup(0, this.lineBindGroup);
+            pass.setVertexBuffer(0, this.gridBuffer);
+            pass.draw(this.gridVertexCount);
         }
 
-        // Draw Points
         if (this.vertexBuffer && this.pointCount > 0) {
-            passEncoder.setPipeline(this.pipeline);
+            pass.setPipeline(this.pipeline);
             if (!this.bindGroup) {
                 this.bindGroup = this.device.createBindGroup({
                     layout: this.pipeline.getBindGroupLayout(0),
                     entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }]
                 });
             }
-            passEncoder.setBindGroup(0, this.bindGroup);
-            passEncoder.setVertexBuffer(0, this.vertexBuffer);
-            passEncoder.draw(6, this.pointCount);
+            pass.setBindGroup(0, this.bindGroup);
+            pass.setVertexBuffer(0, this.vertexBuffer);
+            pass.draw(6, this.pointCount);
         }
+        pass.end();
 
-        passEncoder.end();
+        // 2. Extraction Pass
+        const extractPass = commandEncoder.beginRenderPass({
+            colorAttachments: [{ view: this.brightTexture.createView(), loadOp: 'clear', storeOp: 'store' }]
+        });
+        extractPass.setPipeline(this.postPipelines.extract);
+        extractPass.setBindGroup(0, this.device.createBindGroup({
+            layout: this.postPipelines.extract.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.postUniformBuffer } },
+                { binding: 1, resource: this.sampler },
+                { binding: 2, resource: this.sceneTexture.createView() }
+            ]
+        }));
+        extractPass.draw(3);
+        extractPass.end();
+
+        // 3. Blur Passes (Horizontal)
+        postData[2] = 1.0; postData[3] = 0.0;
+        this.device.queue.writeBuffer(this.postUniformBuffer, 0, postData);
+        const blurH = commandEncoder.beginRenderPass({
+            colorAttachments: [{ view: this.blurTextureA.createView(), loadOp: 'clear', storeOp: 'store' }]
+        });
+        blurH.setPipeline(this.postPipelines.blur);
+        blurH.setBindGroup(0, this.device.createBindGroup({
+            layout: this.postPipelines.blur.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.postUniformBuffer } },
+                { binding: 1, resource: this.sampler },
+                { binding: 2, resource: this.brightTexture.createView() }
+            ]
+        }));
+        blurH.draw(3);
+        blurH.end();
+
+        // 4. Blur Passes (Vertical)
+        postData[2] = 0.0; postData[3] = 1.0;
+        this.device.queue.writeBuffer(this.postUniformBuffer, 0, postData);
+        const blurV = commandEncoder.beginRenderPass({
+            colorAttachments: [{ view: this.blurTextureB.createView(), loadOp: 'clear', storeOp: 'store' }]
+        });
+        blurV.setPipeline(this.postPipelines.blur);
+        blurV.setBindGroup(0, this.device.createBindGroup({
+            layout: this.postPipelines.blur.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.postUniformBuffer } },
+                { binding: 1, resource: this.sampler },
+                { binding: 2, resource: this.blurTextureA.createView() }
+            ]
+        }));
+        blurV.draw(3);
+        blurV.end();
+
+        // 5. Composite Pass
+        const compositePass = commandEncoder.beginRenderPass({
+            colorAttachments: [{ view: this.context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store' }]
+        });
+        compositePass.setPipeline(this.postPipelines.composite);
+        compositePass.setBindGroup(0, this.device.createBindGroup({
+            layout: this.postPipelines.composite.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.postUniformBuffer } },
+                { binding: 1, resource: this.sampler },
+                { binding: 2, resource: this.blurTextureB.createView() }
+            ]
+        }));
+        compositePass.setBindGroup(1, this.device.createBindGroup({
+            layout: this.postPipelines.composite.getBindGroupLayout(1),
+            entries: [
+                { binding: 0, resource: this.sceneTexture.createView() }
+            ]
+        }));
+        compositePass.draw(3);
+        compositePass.end();
+
         this.device.queue.submit([commandEncoder.finish()]);
     }
 

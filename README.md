@@ -7,10 +7,18 @@ An interactive **high-performance 3D point cloud generator** powered by **WebGPU
 
 ## Features
 
+- **Bezier Spline Editor**:
+  - Add/Remove points with a simple double-click or right-click
+  - Fine-grained curvature control using draggable anchor handles
+  - Symmetric handle movement for guaranteed smooth $C^1$ continuity
+- **Cinematic Post-Processing (Bloom)**:
+  - Multi-pass WebGPU rendering pipeline
+  - High-quality 9-tap Gaussian Blur for organic glowing effects
+  - Real-time adjustable Bloom intensity
 - **High-Performance WebGPU Rendering**: 
   - Ultra-fast rendering using modern GPU APIs
   - High DPI (Retina) support for crystal-clear visuals
-  - Smoothstep Anti-aliasing for perfectly round points
+  - Sharp and clean point rendering with subtle anti-aliasing
 - **Flexible Aspect Ratios**:
   - Support for 16:9, 1:1, 9:16 and Custom ratios
   - Real-time viewport resizing with visual framing
@@ -97,13 +105,14 @@ Point Cloud Generator/
 
 ## Usage
 
-1. **Edit Vertical Profile**: Use the top editor to control height and scale along the Y-axis
-2. **Edit Horizontal Shape**: Use the middle editor to define the shape on the X-Z plane
+1. **Edit Vertical Profile**: Use the top editor to control height and scale. Double-click to add points, drag handles for curvature.
+2. **Edit Horizontal Shape**: Use the middle editor to define the shape on the X-Z plane with same Bezier controls.
 3. **Navigate 3D View**:
    - **Rotate**: Left-click and drag
    - **Pan**: Middle-click (scroll wheel) and drag
    - **Zoom**: Scroll wheel
 4. **Adjust Parameters**: 
+   - **Bloom Intensity**: Add a cinematic glow by increasing the slider.
    - **X/Z Dimensions**: Manually define the grid extension
    - **Density**: Use the slider or type a value for unlimited points
    - **Colors**: Pick primary/secondary colors and choose a gradient mode

@@ -15,7 +15,8 @@ const state = {
   noise: 0,
   autoRotate: false,
   gridWidth: 400,
-  gridDepth: 400
+  gridDepth: 400,
+  bloom: 0
 };
 
 // --- DOM Elements ---
@@ -37,6 +38,8 @@ const elBgTransparent = document.getElementById('param-bg-transparent');
 const elAutoRotate = document.getElementById('param-auto-rotate');
 const elShowAxes = document.getElementById('param-show-axes');
 const elShowGrid = document.getElementById('param-show-grid');
+const elBloom = document.getElementById('param-bloom');
+const valBloom = document.getElementById('val-bloom');
 const elAspect = document.getElementById('param-aspect');
 const elGridWidth = document.getElementById('param-grid-width');
 const elGridDepth = document.getElementById('param-grid-depth');
@@ -270,6 +273,13 @@ elLightMode.addEventListener('change', (e) => {
   horizontalEditor.draw();
 });
 
+elBloom.addEventListener('input', (e) => {
+  const val = parseFloat(e.target.value);
+  state.bloom = val;
+  valBloom.textContent = val.toFixed(1);
+  renderer.bloomIntensity = val;
+});
+
 elAspect.addEventListener('change', (e) => {
   renderer.aspectRatio = e.target.value;
 });
@@ -283,7 +293,8 @@ elGridWidth.addEventListener('input', (e) => {
 elGridDepth.addEventListener('input', (e) => {
   state.gridDepth = parseFloat(e.target.value) || 400;
   renderer.gridDepth = state.gridDepth;
-  update();
+  renderer.bloomIntensity = state.bloom;
+  renderer.render();
 });
 
 // Buttons
@@ -334,6 +345,9 @@ btnExportObj.addEventListener('click', () => {
 
 btnReset.addEventListener('click', () => {
   // Reset State
+  elBloom.value = 0;
+  valBloom.textContent = '0.0';
+
   Object.assign(state, {
     density: 30,
     height: 1,
@@ -343,7 +357,8 @@ btnReset.addEventListener('click', () => {
     colorMode: 'solid',
     noise: 0,
     gridWidth: 400,
-    gridDepth: 400
+    gridDepth: 400,
+    bloom: 0
   });
   renderer.zoom = 1;
   renderer.gridWidth = 400;
