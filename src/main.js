@@ -1,10 +1,21 @@
+/**
+ * @fileoverview Main application entry point for the Point Cloud Generator.
+ * 
+ * Initializes the application, sets up UI event listeners, and coordinates
+ * between the curve editors, surface generator, and WebGPU renderer.
+ * Handles all user interactions and parameter updates.
+ */
+
 import './style.css';
 import { CurveEditor } from './CurveEditor.js';
 import { WebGPURenderer } from './WebGPURenderer.js';
 import { SurfaceGenerator } from './SurfaceGenerator.js';
 import { Exporter } from './Exporter.js';
 
-// --- State ---
+/**
+ * Application state object containing all generation parameters.
+ * @type {Object}
+ */
 const state = {
   density: 30,
   height: 1,
@@ -140,8 +151,8 @@ const horizontalEditor = new CurveEditor(horizontalCanvasId, false, update);
 
 // 1. Editors
 /**
- * Event handler for curve editor changes.
- * Throttle or debounce could be added here if generation becomes expensive.
+ * Callback triggered when curve editors are modified.
+ * Regenerates the point cloud and updates the renderer.
  */
 function onCurveUpdate() {
   update();
@@ -152,9 +163,9 @@ horizontalEditor.onChange = onCurveUpdate;
 
 // 2. Parameters
 /**
- * Attaches a standard input listener to a UI parameter.
- * @param {HTMLElement} element - The DOM element.
- * @param {Function} handler - The callback function.
+ * Safely attaches an event listener to a DOM element if it exists.
+ * @param {HTMLElement|null} element - The DOM element
+ * @param {Function} handler - The event handler function
  */
 function attachListener(element, handler) {
   if (element) {
@@ -388,6 +399,10 @@ btnReset.addEventListener('click', () => {
 });
 
 // --- Animation Loop ---
+/**
+ * Main animation loop.
+ * Handles auto-rotation and triggers continuous rendering.
+ */
 function animate() {
   if (state.autoRotate) {
     renderer.angleY += 0.01;
@@ -402,6 +417,9 @@ const mobileBackdrop = document.createElement('div');
 mobileBackdrop.className = 'mobile-backdrop';
 document.body.appendChild(mobileBackdrop);
 
+/**
+ * Toggles the sidebar visibility on mobile devices.
+ */
 function toggleMobileMenu() {
   sidebar.classList.toggle('mobile-open');
   mobileMenuToggle.classList.toggle('active');

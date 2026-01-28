@@ -1,4 +1,26 @@
+/**
+ * @fileoverview WebGPU-based 3D point cloud renderer with post-processing effects.
+ * Implements hardware-accelerated rendering using WebGPU API with support for
+ * bloom effects, grid/axes visualization, and interactive camera controls.
+ */
 
+/**
+ * @fileoverview WebGPU-based 3D point cloud renderer with post-processing effects.
+ * 
+ * This module implements a hardware-accelerated rendering engine using the WebGPU API.
+ * It provides real-time 3D visualization of point clouds with advanced features including:
+ * - Instanced rendering for efficient handling of large point clouds
+ * - Multi-pass bloom post-processing for visual enhancement
+ * - Interactive camera controls (rotation, pan, zoom)
+ * - Grid and coordinate axes visualization
+ * - Touch gesture support for mobile devices
+ * - Customizable aspect ratios and viewport settings
+ */
+
+/**
+ * WGSL shader for rendering point cloud particles as billboarded quads.
+ * Implements perspective-correct sizing and circular point shapes with smooth edges.
+ */
 const quadShader = `
 struct Uniforms {
   mvpMatrix : mat4x4<f32>,
@@ -71,6 +93,10 @@ fn frag_main(@location(0) color : vec4<f32>, @location(1) uv : vec2<f32>) -> @lo
 }
 `;
 
+/**
+ * WGSL shader for rendering grid lines and coordinate axes.
+ * Supports opacity control for grid visibility.
+ */
 const lineShader = `
 struct Uniforms {
   mvpMatrix : mat4x4<f32>,
@@ -102,6 +128,10 @@ fn frag_main(@location(0) color : vec4<f32>) -> @location(0) vec4<f32> {
 }
 `;
 
+/**
+ * WGSL shader for post-processing effects including bloom extraction,
+ * Gaussian blur, and final composition.
+ */
 const postProcessShader = `
 struct PostUniforms {
   bloomIntensity : f32,
@@ -169,8 +199,21 @@ fn frag_composite(@location(0) uv : vec2<f32>) -> @location(0) vec4<f32> {
 `;
 
 /**
- * WebGPU Renderer class for rendering 3D point clouds.
- * Handles resizing, matrix transformations, and instanced rendering.
+ * WebGPU-based renderer for 3D point cloud visualization.
+ * 
+ * Features:
+ * - Hardware-accelerated instanced rendering
+ * - Multi-pass bloom post-processing
+ * - Interactive camera controls (rotation, pan, zoom)
+ * - Grid and axes visualization
+ * - Touch gesture support for mobile devices
+ * 
+ * @class
+ * @example
+ * const renderer = new WebGPURenderer('canvas-id');
+ * await renderer.init();
+ * renderer.updatePoints(pointCloudData);
+ * renderer.render();
  */
 export class WebGPURenderer {
     /**

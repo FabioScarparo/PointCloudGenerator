@@ -1,6 +1,27 @@
+/**
+ * @fileoverview Interactive Bezier spline curve editor with touch support.
+ * Provides a canvas-based interface for creating and editing smooth curves using
+ * cubic Bezier splines with draggable control points.
+ */
+
 import { cubicBezier, sampleBezierSpline, TOP_MARGIN, BOTTOM_MARGIN, LEFT_MARGIN, RIGHT_MARGIN } from './math.js';
 
+/**
+ * Interactive Bezier curve editor for defining profile and shape curves.
+ * Supports both mouse and touch interactions with mobile-optimized gestures.
+ * 
+ * @class
+ * @example
+ * const editor = new CurveEditor('canvas-id', true, () => console.log('curve changed'));
+ */
 export class CurveEditor {
+    /**
+     * Creates a new curve editor instance.
+     * 
+     * @param {string} canvasId - ID of the canvas element to attach to
+     * @param {boolean} [isVertical=false] - Whether this is a vertical profile editor
+     * @param {Function} [onChange] - Callback function triggered when the curve changes
+     */
     constructor(canvasId, isVertical = false, onChange) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
@@ -10,12 +31,30 @@ export class CurveEditor {
         this.pulse = 0;
         this.animationFrame = null;
 
-        // points: array of {x, y, cp1: {dx, dy}, cp2: {dx, dy}}
         this.points = [];
         this.selectedPoint = -1;
-        this.dragHandle = 0; // 0: anchor, 1: cp1, 2: cp2
+        this.dragHandle = 0;
+        this.dragIndex = -1;
+        this.hoverIndex = -1;
 
-        // Initialize default shape based on orientation
+        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        this.hitRadius = this.isTouchDevice ? 15 : 8;
+        this.longPressTimer = null;
+        this.longPressDuration = 500;
+
+        this.initializeDefaultCurve();
+        this.setupEventListeners();
+        this.resize();
+        this.animate();
+
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    /**
+     * Initializes the default curve shape based on editor orientation.
+     * @private
+     */
+    initializeDefaultCurve() {
         if (this.isVertical) {
             this.points = [
                 { x: 0.5, y: 0, cp1: { dx: -0.1, dy: 0 }, cp2: { dx: 0.1, dy: 0 } },
@@ -29,36 +68,30 @@ export class CurveEditor {
                 { x: 1, y: 0.5, cp1: { dx: 0, dy: -0.2 }, cp2: { dx: 0, dy: 0.2 } }
             ];
         }
+    }
 
-        this.dragIndex = -1;
-        this.hoverIndex = -1;
-
-        // Mobile detection
-        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        this.hitRadius = this.isTouchDevice ? 15 : 8; // Larger touch targets on mobile
-        this.longPressTimer = null;
-        this.longPressDuration = 500; // ms
-
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-
-        // Event Listeners
+    /**
+     * Sets up all mouse and touch event listeners.
+     * @private
+     */
+    setupEventListeners() {
         this.canvas.addEventListener('mousedown', this.onMouseDown.bind(this));
         window.addEventListener('mousemove', this.onMouseMove.bind(this));
         window.addEventListener('mouseup', this.onMouseUp.bind(this));
         this.canvas.addEventListener('dblclick', this.onDoubleClick.bind(this));
         this.canvas.addEventListener('contextmenu', this.onContextMenu.bind(this));
 
-        // Enhanced Touch support
         this.canvas.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
         this.canvas.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
         this.canvas.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: false });
         this.canvas.addEventListener('touchcancel', this.onTouchEnd.bind(this), { passive: false });
-
-        // Start Animation Loop
-        this.animate();
     }
 
+    /**
+     * Handles touch start events with long-press detection for adding points.
+     * @param {TouchEvent} e - Touch event
+     * @private
+     */
     onTouchStart(e) {
         e.preventDefault();
 
@@ -66,38 +99,46 @@ export class CurveEditor {
             const touch = e.touches[0];
             const pos = this.getMousePos(touch);
 
-            // Start long-press timer for adding points
             this.longPressTimer = setTimeout(() => {
                 this.onLongPress(pos);
                 this.longPressTimer = null;
             }, this.longPressDuration);
 
-            // Trigger mouse down for dragging
             this.onMouseDown({ ...touch, button: 0 });
         } else {
-            // Multi-touch, cancel long press
             this.clearLongPress();
         }
     }
 
+    /**
+     * Handles touch move events.
+     * @param {TouchEvent} e - Touch event
+     * @private
+     */
     onTouchMove(e) {
         e.preventDefault();
-
-        // Cancel long press on move
         this.clearLongPress();
 
         if (e.touches.length === 1) {
-            const touch = e.touches[0];
-            this.onMouseMove(touch);
+            this.onMouseMove(e.touches[0]);
         }
     }
 
+    /**
+     * Handles touch end events.
+     * @param {TouchEvent} e - Touch event
+     * @private
+     */
     onTouchEnd(e) {
         e.preventDefault();
         this.clearLongPress();
         this.onMouseUp(e);
     }
 
+    /**
+     * Clears the long-press timer.
+     * @private
+     */
     clearLongPress() {
         if (this.longPressTimer) {
             clearTimeout(this.longPressTimer);
@@ -105,8 +146,12 @@ export class CurveEditor {
         }
     }
 
+    /**
+     * Handles long-press gesture to add a new point (mobile alternative to double-click).
+     * @param {{x: number, y: number}} pos - Canvas position
+     * @private
+     */
     onLongPress(pos) {
-        // Add point on long press (mobile alternative to double-click)
         const normalized = this.fromCanvas(pos.x, pos.y);
 
         this.points.push({
@@ -119,18 +164,24 @@ export class CurveEditor {
         this.draw();
         if (this.onChange) this.onChange();
 
-        // Visual feedback
         if (navigator.vibrate) {
-            navigator.vibrate(50); // Haptic feedback if available
+            navigator.vibrate(50);
         }
     }
 
+    /**
+     * Animation loop for pulsing origin glow effect.
+     * @private
+     */
     animate() {
         this.pulse += 0.05;
         this.draw();
         this.animationFrame = requestAnimationFrame(this.animate.bind(this));
     }
 
+    /**
+     * Resizes the canvas to match its container.
+     */
     resize() {
         const rect = this.canvas.parentElement.getBoundingClientRect();
         this.canvas.width = rect.width;
@@ -138,44 +189,64 @@ export class CurveEditor {
         this.draw();
     }
 
-    // Convert normalized coordinate (0..1) to canvas pixel
+    /**
+     * Converts normalized coordinates (0-1) to canvas pixel coordinates.
+     * @param {{x: number, y: number}} p - Normalized point
+     * @returns {{x: number, y: number}} Canvas pixel coordinates
+     */
     toCanvas(p) {
         const w = this.canvas.width - LEFT_MARGIN - RIGHT_MARGIN;
         const h = this.canvas.height - TOP_MARGIN - BOTTOM_MARGIN;
 
-        // Flip Y because canvas 0 is top
         return {
             x: LEFT_MARGIN + p.x * w,
             y: this.canvas.height - BOTTOM_MARGIN - p.y * h
         };
     }
 
-    // Convert canvas pixel to normalized coordinate (0..1)
+    /**
+     * Converts canvas pixel coordinates to normalized coordinates (0-1).
+     * @param {number} x - Canvas X coordinate
+     * @param {number} y - Canvas Y coordinate
+     * @returns {{x: number, y: number}} Normalized coordinates
+     */
     fromCanvas(x, y) {
         const w = this.canvas.width - LEFT_MARGIN - RIGHT_MARGIN;
         const h = this.canvas.height - TOP_MARGIN - BOTTOM_MARGIN;
 
-        let nx = (x - LEFT_MARGIN) / w;
-        let ny = (this.canvas.height - BOTTOM_MARGIN - y) / h;
-
-        // Clamp
-        // nx = Math.max(0, Math.min(1, nx));
-        // ny = Math.max(0, Math.min(1, ny));
+        const nx = (x - LEFT_MARGIN) / w;
+        const ny = (this.canvas.height - BOTTOM_MARGIN - y) / h;
 
         return { x: nx, y: ny };
     }
 
+    /**
+     * Renders the curve editor to the canvas.
+     * @private
+     */
     draw() {
         const { width, height } = this.canvas;
         this.ctx.clearRect(0, 0, width, height);
 
-        // Draw grid/axes
+        this.drawGrid();
+        this.drawAxes();
+        this.drawOriginGlow();
+        this.drawCurve();
+        this.drawControlPoints();
+    }
+
+    /**
+     * Draws the background grid.
+     * @private
+     */
+    drawGrid() {
+        const { width, height } = this.canvas;
         const isLight = this.theme === 'light';
+
         this.ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
 
-        // Draw some sub-grid lines
         const gridSteps = 4;
         for (let i = 1; i < gridSteps; i++) {
             const x = LEFT_MARGIN + (i / gridSteps) * (width - LEFT_MARGIN - RIGHT_MARGIN);
@@ -187,15 +258,18 @@ export class CurveEditor {
             this.ctx.lineTo(width - RIGHT_MARGIN, y);
         }
         this.ctx.stroke();
+    }
 
-        // Determine baseline positions (normalized 0..1)
-        // Vertical profile: axes are at Left (x=0) and Bottom (y=0)
-        // Horizontal shape: axes are at Center (x=0.5) and Center (y=0.5)
+    /**
+     * Draws the coordinate axes.
+     * @private
+     */
+    drawAxes() {
+        const { width, height } = this.canvas;
         const bx = this.isVertical ? 0 : 0.5;
         const by = this.isVertical ? 0 : 0.5;
         const baseline = this.toCanvas({ x: bx, y: by });
 
-        // Y/Z Axis (Vertical in canvas)
         this.ctx.strokeStyle = this.isVertical ? '#4dff4d' : '#4d4dff';
         this.ctx.lineWidth = 2;
         this.ctx.beginPath();
@@ -203,47 +277,57 @@ export class CurveEditor {
         this.ctx.lineTo(baseline.x, height - BOTTOM_MARGIN);
         this.ctx.stroke();
 
-        // X Axis (Horizontal in canvas)
         this.ctx.strokeStyle = '#ff4d4d';
         this.ctx.beginPath();
         this.ctx.moveTo(LEFT_MARGIN, baseline.y);
         this.ctx.lineTo(width - RIGHT_MARGIN, baseline.y);
         this.ctx.stroke();
 
-        // Labels
         this.ctx.font = '10px Outfit';
         this.ctx.fillStyle = this.isVertical ? '#4dff4d' : '#4d4dff';
         this.ctx.fillText(this.isVertical ? 'Y (Height)' : 'Z (Depth)', baseline.x - 40, TOP_MARGIN);
 
         this.ctx.fillStyle = '#ff4d4d';
         this.ctx.fillText(this.isVertical ? 'Radius' : 'X (Width)', width - RIGHT_MARGIN, baseline.y + 20);
+    }
 
-        // Origin Glow
+    /**
+     * Draws the animated glow at the origin.
+     * @private
+     */
+    drawOriginGlow() {
+        const bx = this.isVertical ? 0 : 0.5;
+        const by = this.isVertical ? 0 : 0.5;
+        const baseline = this.toCanvas({ x: bx, y: by });
+
         this.ctx.beginPath();
         const pulseFactor = Math.sin(this.pulse) * 5;
         const glowRadius = 20 + pulseFactor;
         const grad = this.ctx.createRadialGradient(baseline.x, baseline.y, 0, baseline.x, baseline.y, glowRadius);
         const accentColor = '#007aff';
-        grad.addColorStop(0, `${accentColor}4D`); // 30% alpha
-        grad.addColorStop(1, `${accentColor}00`); // 0% alpha
+        grad.addColorStop(0, `${accentColor}4D`);
+        grad.addColorStop(1, `${accentColor}00`);
         this.ctx.fillStyle = grad;
         this.ctx.arc(baseline.x, baseline.y, glowRadius, 0, Math.PI * 2);
         this.ctx.fill();
+    }
 
-        // Draw Curve
+    /**
+     * Draws the Bezier curve.
+     * @private
+     */
+    drawCurve() {
+        const accentColor = '#007aff';
         this.ctx.strokeStyle = accentColor;
         this.ctx.lineWidth = 3;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         this.ctx.beginPath();
 
-        // Glow effect
         this.ctx.shadowBlur = 10;
         this.ctx.shadowColor = 'rgba(124, 77, 255, 0.4)';
 
-        // We calculate points along the curve for rendering
         const steps = 150;
-
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
             const x = sampleBezierSpline(t, this.points, 'x');
@@ -253,9 +337,16 @@ export class CurveEditor {
             else this.ctx.lineTo(pos.x, pos.y);
         }
         this.ctx.stroke();
-        this.ctx.shadowBlur = 0; // Reset glow
+        this.ctx.shadowBlur = 0;
+    }
 
-        // Draw Handles and Points
+    /**
+     * Draws control points and handles.
+     * @private
+     */
+    drawControlPoints() {
+        const isLight = this.theme === 'light';
+
         this.points.forEach((p, i) => {
             const pos = this.toCanvas(p);
             const isHovered = i === this.hoverIndex;
@@ -263,7 +354,6 @@ export class CurveEditor {
             const isSelected = i === this.selectedPoint;
             const isActive = isHovered || isDragged || isSelected;
 
-            // Draw Handles if selected or dragged
             if (isActive) {
                 const cp1Pos = this.toCanvas({ x: p.x + p.cp1.dx, y: p.y + p.cp1.dy });
                 const cp2Pos = this.toCanvas({ x: p.x + p.cp2.dx, y: p.y + p.cp2.dy });
@@ -279,20 +369,17 @@ export class CurveEditor {
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
 
-                // CP1 Circle
                 this.ctx.beginPath();
                 this.ctx.arc(cp1Pos.x, cp1Pos.y, 4, 0, Math.PI * 2);
                 this.ctx.fillStyle = (this.dragIndex === i && this.dragHandle === 1) ? '#ff4d4d' : '#888';
                 this.ctx.fill();
 
-                // CP2 Circle
                 this.ctx.beginPath();
                 this.ctx.arc(cp2Pos.x, cp2Pos.y, 4, 0, Math.PI * 2);
                 this.ctx.fillStyle = (this.dragIndex === i && this.dragHandle === 2) ? '#ff4d4d' : '#888';
                 this.ctx.fill();
             }
 
-            // Anchor Point
             this.ctx.beginPath();
             const size = (isHovered || isDragged) ? 10 : 8;
             this.ctx.rect(pos.x - size / 2, pos.y - size / 2, size, size);
@@ -307,16 +394,16 @@ export class CurveEditor {
         });
     }
 
+    /**
+     * Gets mouse/touch position relative to canvas.
+     * @param {MouseEvent|Touch} e - Event object
+     * @returns {{x: number, y: number}} Canvas-relative position
+     * @private
+     */
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
-        let clientX = e.clientX;
-        let clientY = e.clientY;
-
-        // For touches
-        if (e.clientX === undefined && e.pageX !== undefined) {
-            clientX = e.pageX;
-            clientY = e.pageY;
-        }
+        const clientX = e.clientX ?? e.pageX;
+        const clientY = e.clientY ?? e.pageY;
 
         return {
             x: clientX - rect.left,
@@ -324,20 +411,23 @@ export class CurveEditor {
         };
     }
 
+    /**
+     * Handles mouse down events for dragging points and handles.
+     * @param {MouseEvent} e - Mouse event
+     * @private
+     */
     onMouseDown(e) {
-        if (e.button !== undefined && e.button !== 0) return; // Only left click
+        if (e.button !== undefined && e.button !== 0) return;
         const pos = this.getMousePos(e);
 
         this.dragIndex = -1;
         this.dragHandle = 0;
         const hitRadiusSq = this.hitRadius * this.hitRadius;
 
-        // Check anchors and handles of selected point
         for (let i = 0; i < this.points.length; i++) {
             const p = this.points[i];
             const pCanvas = this.toCanvas(p);
 
-            // Check Anchor
             if (this.distSq(pos, pCanvas) < hitRadiusSq) {
                 this.dragIndex = i;
                 this.dragHandle = 0;
@@ -345,7 +435,6 @@ export class CurveEditor {
                 break;
             }
 
-            // Check handles only if point is selected or hovered
             if (i === this.selectedPoint) {
                 const cp1 = this.toCanvas({ x: p.x + p.cp1.dx, y: p.y + p.cp1.dy });
                 if (this.distSq(pos, cp1) < hitRadiusSq) {
@@ -364,15 +453,26 @@ export class CurveEditor {
         this.draw();
     }
 
+    /**
+     * Calculates squared distance between two points.
+     * @param {{x: number, y: number}} p1 - First point
+     * @param {{x: number, y: number}} p2 - Second point
+     * @returns {number} Squared distance
+     * @private
+     */
     distSq(p1, p2) {
         return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
     }
 
+    /**
+     * Handles double-click to add a new point.
+     * @param {MouseEvent} e - Mouse event
+     * @private
+     */
     onDoubleClick(e) {
         const pos = this.getMousePos(e);
         const normalized = this.fromCanvas(pos.x, pos.y);
 
-        // Add point with default handles
         this.points.push({
             ...normalized,
             cp1: { dx: -0.1, dy: 0 },
@@ -384,6 +484,11 @@ export class CurveEditor {
         if (this.onChange) this.onChange();
     }
 
+    /**
+     * Handles right-click to remove a point.
+     * @param {MouseEvent} e - Mouse event
+     * @private
+     */
     onContextMenu(e) {
         e.preventDefault();
         const pos = this.getMousePos(e);
@@ -407,6 +512,11 @@ export class CurveEditor {
         }
     }
 
+    /**
+     * Handles mouse move for dragging and hover effects.
+     * @param {MouseEvent} e - Mouse event
+     * @private
+     */
     onMouseMove(e) {
         const pos = this.getMousePos(e);
 
@@ -415,17 +525,14 @@ export class CurveEditor {
             const p = this.points[this.dragIndex];
 
             if (this.dragHandle === 0) {
-                // Moving Anchor
                 p.x = Math.max(0, Math.min(1, normalized.x));
                 p.y = Math.max(0, Math.min(1, normalized.y));
             } else if (this.dragHandle === 1) {
-                // Moving CP1 (Mirroring CP2)
                 p.cp1.dx = normalized.x - p.x;
                 p.cp1.dy = normalized.y - p.y;
                 p.cp2.dx = -p.cp1.dx;
                 p.cp2.dy = -p.cp1.dy;
             } else if (this.dragHandle === 2) {
-                // Moving CP2 (Mirroring CP1)
                 p.cp2.dx = normalized.x - p.x;
                 p.cp2.dy = normalized.y - p.y;
                 p.cp1.dx = -p.cp2.dx;
@@ -435,7 +542,6 @@ export class CurveEditor {
             this.draw();
             if (this.onChange) this.onChange();
         } else {
-            // Hover effect for anchors
             this.hoverIndex = -1;
             const hitRadiusSq = 225;
             for (let i = 0; i < this.points.length; i++) {
@@ -449,25 +555,20 @@ export class CurveEditor {
         }
     }
 
+    /**
+     * Handles mouse up to end dragging.
+     * @private
+     */
     onMouseUp() {
         this.dragIndex = -1;
         this.draw();
     }
 
+    /**
+     * Resets the curve to its default shape.
+     */
     reset() {
-        if (this.isVertical) {
-            this.points = [
-                { x: 0.5, y: 0, cp1: { dx: -0.1, dy: 0 }, cp2: { dx: 0.1, dy: 0 } },
-                { x: 0.8, y: 0.5, cp1: { dx: 0, dy: -0.1 }, cp2: { dx: 0, dy: 0.1 } },
-                { x: 0.5, y: 1, cp1: { dx: 0.1, dy: 0 }, cp2: { dx: -0.1, dy: 0 } }
-            ];
-        } else {
-            this.points = [
-                { x: 0, y: 0.5, cp1: { dx: 0, dy: 0.2 }, cp2: { dx: 0, dy: -0.2 } },
-                { x: 0.5, y: 0.1, cp1: { dx: -0.2, dy: 0 }, cp2: { dx: 0.2, dy: 0 } },
-                { x: 1, y: 0.5, cp1: { dx: 0, dy: -0.2 }, cp2: { dx: 0, dy: 0.2 } }
-            ];
-        }
+        this.initializeDefaultCurve();
         this.selectedPoint = -1;
         this.draw();
     }

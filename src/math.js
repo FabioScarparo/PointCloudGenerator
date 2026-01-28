@@ -1,16 +1,25 @@
-export const TOP_MARGIN = 100
-export const BOTTOM_MARGIN = 50
-export const LEFT_MARGIN = 50
-export const RIGHT_MARGIN = 50
+/**
+ * @fileoverview Mathematical utilities for Bezier curves, 3D transformations, and color interpolation.
+ * Provides core math functions used throughout the point cloud generator.
+ */
 
 /**
- * Calculates a point on a cubic Bezier curve at time t.
- * @param {number} t - Time [0, 1]
- * @param {number} p0 - Start point
- * @param {number} p1 - Control point 1
- * @param {number} p2 - Control point 2
- * @param {number} p3 - End point
- * @returns {number} The calculated value
+ * Canvas margin constants for curve editor rendering.
+ */
+export const TOP_MARGIN = 100;
+export const BOTTOM_MARGIN = 50;
+export const LEFT_MARGIN = 50;
+export const RIGHT_MARGIN = 50;
+
+/**
+ * Calculates a point on a cubic Bezier curve using De Casteljau's algorithm.
+ * 
+ * @param {number} t - Parameter value in range [0, 1]
+ * @param {number} p0 - Start point value
+ * @param {number} p1 - First control point value
+ * @param {number} p2 - Second control point value
+ * @param {number} p3 - End point value
+ * @returns {number} The interpolated value at parameter t
  */
 export function cubicBezier(t, p0, p1, p2, p3) {
   const mt = 1 - t;
@@ -23,11 +32,13 @@ export function cubicBezier(t, p0, p1, p2, p3) {
 }
 
 /**
- * Samples a value from a Bezier Spline at time t.
- * @param {number} t - Overall progress [0, 1]
- * @param {Array<object>} points - Sequence of points {x, y, cp1:{dx,dy}, cp2:{dx,dy}}
- * @param {string} axis - 'x' or 'y'
- * @returns {number} The sampled value
+ * Samples a value from a composite Bezier spline at a given parameter.
+ * Handles multiple connected Bezier segments seamlessly.
+ * 
+ * @param {number} t - Overall progress along the spline in range [0, 1]
+ * @param {Array<{x: number, y: number, cp1: {dx: number, dy: number}, cp2: {dx: number, dy: number}}>} points - Array of control points with handles
+ * @param {'x'|'y'} axis - Which axis to sample ('x' or 'y')
+ * @returns {number} The sampled value at parameter t
  */
 export function sampleBezierSpline(t, points, axis) {
   if (points.length < 2) return points[0] ? points[0][axis] : 0;
@@ -45,12 +56,6 @@ export function sampleBezierSpline(t, points, axis) {
   const pA = points[idx];
   const pB = points[idx + 1];
 
-  // For axis 'x':
-  // P0 = pA.x
-  // P1 = pA.x + pA.cp2.dx
-  // P2 = pB.x + pB.cp1.dx
-  // P3 = pB.x
-
   const v0 = pA[axis];
   const v1 = pA[axis] + (axis === 'x' ? pA.cp2.dx : pA.cp2.dy);
   const v2 = pB[axis] + (axis === 'x' ? pB.cp1.dx : pB.cp1.dy);
@@ -60,14 +65,15 @@ export function sampleBezierSpline(t, points, axis) {
 }
 
 /**
- * Projects a 3D point onto a 2D plane with perspective.
- * @param {number} x
- * @param {number} y
- * @param {number} z
- * @param {number} centerX - Canvas center X
- * @param {number} centerY - Canvas center Y
- * @param {number} fov - Field of view / Perspective scale
- * @returns {{x: number, y: number, scale: number}} Projected point and scale factor for depth sizing
+ * Projects a 3D point onto a 2D plane using perspective projection.
+ * 
+ * @param {number} x - 3D X coordinate
+ * @param {number} y - 3D Y coordinate
+ * @param {number} z - 3D Z coordinate (depth)
+ * @param {number} centerX - 2D canvas center X
+ * @param {number} centerY - 2D canvas center Y
+ * @param {number} [fov=400] - Field of view / perspective scale factor
+ * @returns {{x: number, y: number, scale: number}} Projected 2D coordinates and depth scale
  */
 export function project3D(x, y, z, centerX, centerY, fov = 400) {
   const scale = fov / (fov + z);
@@ -77,7 +83,13 @@ export function project3D(x, y, z, centerX, centerY, fov = 400) {
 }
 
 /**
- * Rotates a point around the Y axis
+ * Rotates a 3D point around the Y axis.
+ * 
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {number} z - Z coordinate
+ * @param {number} angle - Rotation angle in radians
+ * @returns {{x: number, y: number, z: number}} Rotated coordinates
  */
 export function rotateY(x, y, z, angle) {
   const cos = Math.cos(angle);
@@ -90,7 +102,13 @@ export function rotateY(x, y, z, angle) {
 }
 
 /**
- * Rotates a point around the X axis
+ * Rotates a 3D point around the X axis.
+ * 
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {number} z - Z coordinate
+ * @param {number} angle - Rotation angle in radians
+ * @returns {{x: number, y: number, z: number}} Rotated coordinates
  */
 export function rotateX(x, y, z, angle) {
   const cos = Math.cos(angle);
@@ -101,11 +119,13 @@ export function rotateX(x, y, z, angle) {
     z: y * sin + z * cos
   };
 }
+
 /**
- * Interpolates between two hex colors.
- * @param {string} color1 - Hex color 1
- * @param {string} color2 - Hex color 2
- * @param {number} t - Interpolation factor [0, 1]
+ * Linearly interpolates between two hex colors in RGB space.
+ * 
+ * @param {string} color1 - First hex color (e.g., '#ff0000')
+ * @param {string} color2 - Second hex color (e.g., '#00ff00')
+ * @param {number} t - Interpolation factor in range [0, 1]
  * @returns {string} Interpolated hex color
  */
 export function interpolateColor(color1, color2, t) {
