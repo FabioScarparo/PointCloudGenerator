@@ -11,6 +11,9 @@ An interactive **high-performance 3D point cloud generator** powered by **WebGPU
   - Ultra-fast rendering using modern GPU APIs
   - High DPI (Retina) support for crystal-clear visuals
   - Smoothstep Anti-aliasing for perfectly round points
+- **Flexible Aspect Ratios**:
+  - Support for 16:9, 1:1, 9:16 and Custom ratios
+  - Real-time viewport resizing with visual framing
 - **Multiple Geometry Modes**:
   - Sweep Shape: Extrude a shape along a path
   - Revolution: Create solids of revolution
@@ -24,10 +27,10 @@ An interactive **high-performance 3D point cloud generator** powered by **WebGPU
   - Panning: Middle mouse button (wheel) drag to reposition the view
   - Zoom: Scroll wheel or slider based zooming
 - **Comprehensive Controls**:
-  - Adjustable point density
-  - Height scaling
-  - Point radius
-  - Noise intensity
+  - **Unlimited Point Density**: High-count slider (up to 500) and manual override for any value
+  - **Independent Grid Dimensions**: Manual control over Width (X) and Depth (Z) extensions
+  - Height scaling and real-time point radius adjustment
+  - Noise intensity and jitter control
   - Customizable background (color and transparency)
   - Grid & Axes Opacity: Adjustable reference grid transparency
 - **Multiple Export Formats**:
@@ -100,8 +103,13 @@ Point Cloud Generator/
    - **Rotate**: Left-click and drag
    - **Pan**: Middle-click (scroll wheel) and drag
    - **Zoom**: Scroll wheel
-4. **Adjust Parameters**: Use the sidebar controls to modify density, colors, grid opacity, etc.
-5. **Export**: Save your work as PNG, SVG, or OBJ
+4. **Adjust Parameters**: 
+   - **X/Z Dimensions**: Manually define the grid extension
+   - **Density**: Use the slider or type a value for unlimited points
+   - **Colors**: Pick primary/secondary colors and choose a gradient mode
+   - **Grid**: Toggle axes and grid visibility or adjust opacity
+5. **Aspect Ratio**: Choose a viewport frame that matches your output target
+6. **Export**: Save your work as PNG, SVG, or OBJ
 
 ## Browser Support
 
