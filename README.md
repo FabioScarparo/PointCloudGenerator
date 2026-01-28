@@ -27,8 +27,8 @@ An interactive **high-performance 3D point cloud generator** powered by **WebGPU
   - Panning: Middle mouse button (wheel) drag to reposition the view
   - Zoom: Scroll wheel or slider based zooming
 - **Comprehensive Controls**:
-  - **Unlimited Point Density**: High-count slider (up to 500) and manual override for any value
-  - **Independent Grid Dimensions**: Manual control over Width (X) and Depth (Z) extensions
+  - Unlimited Point Density: High-count slider (up to 500) and manual override for any value
+  - Independent Grid Dimensions: Manual control over Width (X) and Depth (Z) extensions
   - Height scaling and real-time point radius adjustment
   - Noise intensity and jitter control
   - Customizable background (color and transparency)
